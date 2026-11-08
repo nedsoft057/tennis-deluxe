@@ -203,7 +203,19 @@
       this.cool = {}; this.comebackSaid = false; this.paused = false; this.shake = 0;
     }
     get on() { return this.o.on || {}; }
-    emit(name, a, b) { const f = this.on[name]; if (f) f(a, b); }
+    emit(name, a, b) { const f = this.on[name]; if (f) f(a, b); if (this.extra) this.extra(name, a, b); }
+    // where the ball will cross the player's hitting plane (after its bounce on the player's side)
+    predictCross() {
+      const s = Object.assign({}, this.ball); let bounced = this.bounces >= 1 && this.bounceSide === 0, t = 0; const dt = 1 / 240;
+      while (t < 3) { const ay = -(G + K_TOP * s.sT), ax = K_SIDE * s.sS; s.vx += ax * dt; s.vy += ay * dt; s.x += s.vx * dt; s.y += s.vy * dt; s.z += s.vz * dt; t += dt;
+        if (s.y <= TY + R && s.vy < 0 && Math.abs(s.x) <= TW && Math.abs(s.z) <= TL) { s.y = TY + R; s.vy = -s.vy * 0.86; s.vz += s.sT * 0.6 * Math.sign(s.vz); s.vx += s.sS * 0.3; s.sT *= 0.6; s.sS *= 0.6; if (s.z < 0) bounced = true; }
+        if (s.z <= HIT_P && bounced) return { x: s.x, y: s.y, t };
+        if (s.y < 0) break; }
+      return { x: this.ball.x, y: TY + 0.2, t: 0 };
+    }
+    padWorldX() { return worldXAt(this.pad.sx, this.pad.y, HIT_P); }
+    coachServe() { this.server = 1; this.startPoint(); this._pd = 0; }
+    playerServe() { this.server = 0; this.startPoint(); this._pd = 0; }
     setPointer(sx, sy, down) {
       const p = this.pad, now = performance.now();
       if (!down && p.down) { p.upAt = now; p.tapLen = now - (p.downAt || now); p.tapMove = Math.hypot(sx - (p.dx || sx), sy - (p.dy || sy)) / V.dpr; }
@@ -311,6 +323,7 @@
       if (kind === 'perfect') this.stats.perfects++;
       if (kind) this.callout(kind);
       this.fx.push({ k: 'spark', x: b.x, y: b.y, z: b.z, t: 0 });
+      this.emit('playerhit', { power, curve: sw.curve, kind, vx: sw.vx });
       this.hit(0, Object.assign(v, { sT, sS, power }));
     }
     callout(k) { const now = this.t; if (this.cool[k] && now - this.cool[k] < 6) return; this.cool[k] = now; this.emit('call', k); }
@@ -341,7 +354,7 @@
     }
     update(dtReal) {
       if (this.paused) return;
-      const dt = Math.min(dtReal, 0.05) * TIME; this.t += dtReal; this.stateT += dtReal;
+      const dt = Math.min(dtReal, 0.05) * TIME * (this.ts || 1); this.t += dtReal; if (!this.frozen) this.stateT += dtReal;
       // paddle follows finger
       const p = this.pad, ps = this.playerPaddleScreen();
       const tgtX = worldXAt(ps.x, 0.95, HIT_P);
@@ -359,7 +372,8 @@
       } else if (this.state !== 'rally' || this.lastHitter === 1) { ai.x = lerp(ai.x, this.state === 'serve' && this.server === 1 ? 0 : 0, 0.02); ai.y = lerp(ai.y, 1.0, 0.03); }
       ai.swing = Math.max(0, ai.swing - dtReal * 3);
       this.shake = Math.max(0, this.shake - dtReal);
-      if (this.state === 'intro') { if (this.stateT > 1.4) this.startPoint(); return; }
+      if (this.frozen) return;
+      if (this.state === 'intro') { if (this.o.tutorial) return; if (this.stateT > 1.4) this.startPoint(); return; }
       if (this.state === 'serve') {
         const b = this.ball;
         if (this.server === 0) { b.x = cl(worldXAt(ps.x, TY + 0.3, HIT_P) * 0.6, -0.6, 0.6); b.y = TY + 0.3 + Math.abs(Math.sin(this.stateT * 3.2)) * 0.18; b.z = HIT_P + 0.05; if (this.stateT > 0.5 && sw.speed > 450 && sw.vy < -200) this.serve(0, sw);
@@ -369,6 +383,7 @@
       }
       if (this.state === 'dead') {
         this.physics(dt, true);
+        if (this.o.tutorial && this.stateT > 1.1) { if (!this._pd) { this._pd = 1; this.emit('pointdone'); } return; }
         if (this.stateT > 1.6) {
           if (this.pendingGame !== undefined && this.pendingGame !== null) { const gw = this.pendingGame; this.pendingGame = null; this.score = [0, 0]; this.gameStartServer = 1 - this.gameStartServer; this.server = this.gameStartServer; this.comebackSaid = false; this.stats.maxDeficit = 0; this.emit('game', gw); this.state = 'intro'; this.stateT = -0.6; return; }
           this.startPoint();
@@ -391,7 +406,7 @@
       // table bounce
       if (b.y <= TY + R && py > TY + R - 0.001 && b.vy < 0 && Math.abs(b.x) <= TW && Math.abs(b.z) <= TL) {
         b.y = TY + R; const sp = Math.abs(b.vy); b.vy = -b.vy * 0.86; b.vz += b.sT * 0.6 * Math.sign(b.vz || 1); b.vx += b.sS * 0.3; b.sT *= 0.6; b.sS *= 0.6;
-        this.emit('sfx', 'table', cl(sp / 5, 0.15, 1)); this.fx.push({ k: 'ring', x: b.x, z: b.z, t: 0 });
+        this.emit('sfx', 'table', cl(sp / 5, 0.15, 1)); this.fx.push({ k: 'ring', x: b.x, z: b.z, t: 0 }); if (!dead) this.emit('bounce', b.z > 0 ? 1 : 0);
         if (!dead) {
           const side = b.z > 0 ? 1 : 0;
           if (side === this.lastHitter) { this.pointTo(1 - this.lastHitter, 'own'); return; }
@@ -438,6 +453,7 @@
       for (const f of this.fx) {
         if (f.k === 'ring') { const p = P(f.x, TY + 0.001, f.z), k = f.t / 0.5; if (p[2] < 0.35) continue; ctx.save(); ctx.strokeStyle = `rgba(255,255,255,${0.7 * (1 - k)})`; ctx.lineWidth = 3 * s; ctx.beginPath(); ctx.ellipse(p[0], p[1], (10 + 70 * k) * s * 1.6 / p[2] * 3, (4 + 26 * k) * s * 1.6 / p[2] * 3, 0, 0, 7); ctx.stroke(); ctx.restore(); }
       }
+      if (this.guide) { const g = this.guide, q = P(g.x, g.y, HIT_P), rr = 0.1 * V.F / q[2], k = 0.5 + 0.5 * Math.sin(this.t * 6); ctx.save(); ctx.strokeStyle = `rgba(255,210,63,${0.6 + 0.4 * k})`; ctx.lineWidth = 6 * s; ctx.setLineDash([14 * s, 10 * s]); ctx.beginPath(); ctx.arc(q[0], q[1], rr * (1 + 0.15 * k), 0, 7); ctx.stroke(); ctx.setLineDash([]); ctx.fillStyle = 'rgba(255,210,63,.18)'; ctx.beginPath(); ctx.arc(q[0], q[1], rr, 0, 7); ctx.fill(); ctx.restore(); }
       if (!hidden) this.drawBall(ctx);
       for (const f of this.fx) if (f.k === 'spark') { const p = P(f.x, f.y, f.z), k = f.t / 0.5; if (p[2] < 0.35) continue; const n = f.big ? 14 : 8, L = (f.big ? 90 : 50) * s; ctx.save(); ctx.globalCompositeOperation = 'lighter'; ctx.strokeStyle = `rgba(255,220,140,${1 - k})`; ctx.lineWidth = 3 * s; for (let i = 0; i < n; i++) { const a = i / n * Math.PI * 2; ctx.beginPath(); ctx.moveTo(p[0] + Math.cos(a) * L * k * 0.4, p[1] + Math.sin(a) * L * k * 0.4); ctx.lineTo(p[0] + Math.cos(a) * L * (0.3 + k), p[1] + Math.sin(a) * L * (0.3 + k)); ctx.stroke(); } ctx.restore(); }
       // player paddle

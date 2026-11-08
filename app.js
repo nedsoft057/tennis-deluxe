@@ -124,7 +124,8 @@
     arenaImage('club'); set(0.88); await sleep(20); arenaImage('neon'); set(1, 'READY');
     const wait = 1700 - (Date.now() - t0); if (wait > 0) await sleep(wait);
     Snd.playMusic('menu');
-    if (!S.name) askName(() => openMenu('lineup')); else openMenu('lineup');
+    const afterName = () => { openMenu('lineup'); if (!S.tourDone) setTimeout(menuTour, 400); };
+    if (!S.name) askName(afterName); else afterName();
   }, { once: true });
 
   function askName(then) {
@@ -227,11 +228,12 @@
     const t = (k, l) => `<div class="tog"><span>${l}</span><button class="sw ${S.set[k] ? 'on' : ''}" data-k="${k}"></button></div>`;
     modal(`<div class="h1">Settings</div>${t('music', 'Music')}${t('sfx', 'Sound effects')}${t('voice', 'Announcer')}
       <div class="tog"><span>Name: <b>${esc(S.name)}</b></span><button class="chip" id="stName">CHANGE</button></div>
-      <button class="btn blue" id="stHow" style="font-size:17px">HOW TO PLAY</button><button class="btn" id="stDone">DONE</button>
+      <button class="btn blue" id="stHow" style="font-size:17px">HOW TO PLAY</button><button class="btn ghost" id="stTut">REPLAY TUTORIAL</button><button class="btn" id="stDone">DONE</button>
       <button id="stReset" style="font-size:12px;color:rgba(255,255,255,.5);margin-top:4px">Reset career</button>`);
     $('#mcard').querySelectorAll('.sw').forEach(b => b.onclick = () => { const k = b.dataset.k; S.set[k] = !S.set[k]; b.classList.toggle('on', S.set[k]); save(); if (k === 'music') { if (S.set.music) { const c = Snd.cur || 'menu'; Snd.cur = null; Snd.playMusic(c); } else Snd.stopMusic(); } });
     $('#stName').onclick = () => askName(() => openMenu());
     $('#stHow').onclick = () => howTo(() => closeModal());
+    $('#stTut').onclick = () => { S.tourDone = false; S.tutDone = false; save(); closeModal(); openMenu('lineup'); setTimeout(menuTour, 300); };
     $('#stDone').onclick = () => { closeModal(); openMenu(); };
     $('#stReset').onclick = () => { if (confirmReset()) { const set = S.set; S = fresh(); S.set = set; save(); closeModal(); askName(() => openMenu('lineup')); } };
   }
@@ -308,18 +310,19 @@
     TD.setView(r.width, r.height, dpr); layers = TD.paintArena(cfg.theme);
   }
   function startMatch(c) {
+    if (!S.tutDone && !c.tutorial) return matchTutorial(c);
     cfg = c; show('s-match'); Snd.stopMusic(); Snd.crowdOn(true);
     dpr = Math.min(window.devicePixelRatio || 1, 2); perf = { n: 0, sum: 0, dropped: 0 }; momentum = [];
     sizeCanvas();
     const bat = batStats(S.equipped);
-    M = new TD.Match({ theme: c.theme, bestOf: c.bestOf, ai: c.ai, bat: { speed: bat.speed, spin: bat.spin, control: bat.control, rubber: bat.c, glow: bat.gl }, on: hooks });
+    M = new TD.Match({ theme: c.theme, bestOf: c.bestOf, ai: c.ai, bat: { speed: bat.speed, spin: bat.spin, control: bat.control, rubber: bat.c, glow: bat.gl }, on: hooks, tutorial: !!c.tutorial });
     M.setPointer(cv.width / 2, cv.height * 0.84, false);
     $('#hNameP').textContent = (S.name || 'You').toUpperCase(); $('#hNameA').textContent = (c.ai.flag + ' ' + c.ai.name).toUpperCase();
     $('#hLabel').textContent = c.label.toUpperCase(); hud(true);
     const vs = $('#hVs'); vs.innerHTML = `<div class="kick" style="color:var(--gold)">${esc(c.label.toUpperCase())}</div><div class="row"><span>${esc(S.name || 'You')}</span><span class="vsx">VS</span><span>${esc(c.ai.name)}</span></div><div style="font-size:13px;color:var(--mut)">${c.ai.styleLabel} · Rating ${Math.round(c.ai.skill * 100)} · ${TD.THEMES[c.theme].name}</div>`;
     vs.style.opacity = 1; setTimeout(() => vs.style.opacity = 0, 1500);
     const go = () => { Snd.voice('letsplay'); last = performance.now(); cancelAnimationFrame(raf); raf = requestAnimationFrame(frame); };
-    if (!S.seenTut) { M.paused = true; howTo(() => { closeModal(); M.paused = false; go(); }); } else go();
+    go();
   }
   const CALL_TEXT = { topspin: 'TOPSPIN!', smash: 'SMASH!', perfect: 'PERFECT!', ace: 'ACE!', greatshot: 'GREAT SHOT!', net: 'NET', out: 'OUT!', matchpoint: 'MATCH POINT', setpoint: 'GAME POINT', comeback: 'COMEBACK!', game: 'GAME!' };
   const CALL_VOICE = { setpoint: 'setpoint', matchpoint: 'matchpoint' };
@@ -426,5 +429,149 @@
     }, forfeit ? 50 : 300);
   }
 
-  window.__TD = { S: () => S, M: () => M, startMatch, playLeague, openBracket, openMenu, TOURS, makeAI, save: () => save() };
+
+  /* ================= tutorial ================= */
+  const CO = { el: $('#coach'), hole: $('#coach .chole'), hand: $('#coach .chand'), bub: $('#coach .cbub'), skip: $('#coach .cskip') };
+  let coachRes = null, coachOpts = null, skipFn = null;
+  function rectOf(el) { const a = $('#app').getBoundingClientRect(), r = el.getBoundingClientRect(); return { x: r.left - a.left, y: r.top - a.top, w: r.width, h: r.height }; }
+  function coach(o) {
+    coachOpts = o; const A = $('#app').getBoundingClientRect();
+    CO.el.classList.add('on'); CO.el.classList.toggle('pass', !!o.pass); CO.el.classList.toggle('light', !!o.light);
+    CO.bub.querySelector('.ct').textContent = o.title || ''; CO.bub.querySelector('.cx').innerHTML = o.text || '';
+    CO.bub.querySelector('.cs').textContent = o.tap ? 'TAP THE HIGHLIGHTED PART TO CONTINUE' : (o.hint || '');
+    CO.bub.querySelector('.cstep').textContent = o.step || '';
+    const b = CO.bub.querySelector('.cb'); b.style.display = o.btn ? '' : 'none'; b.textContent = o.btn || '';
+    const el = typeof o.el === 'string' ? $(o.el) : o.el;
+    let r = null;
+    if (el) { const q = rectOf(el), p = o.padH ?? 6; r = { x: q.x - p, y: q.y - p, w: q.w + p * 2, h: q.h + p * 2 }; }
+    else if (o.rect) r = o.rect;
+    if (r) { Object.assign(CO.hole.style, { left: r.x + 'px', top: r.y + 'px', width: r.w + 'px', height: r.h + 'px' }); CO.hole.classList.toggle('ring', true); }
+    else { Object.assign(CO.hole.style, { left: A.width / 2 + 'px', top: A.height / 2 + 'px', width: '0px', height: '0px' }); CO.hole.classList.remove('ring'); }
+    CO.hole.style.display = o.noMask ? 'none' : '';
+    // bubble above or below the highlight
+    const bh = CO.bub.offsetHeight || 150;
+    let top = r ? (r.y + r.h / 2 > A.height * 0.5 ? r.y - bh - 18 : r.y + r.h + 18) : A.height * 0.32;
+    if (o.bubY != null) top = A.height * o.bubY;
+    CO.bub.style.top = Math.max(10, Math.min(A.height - bh - 10, top)) + 'px';
+    // pointing hand
+    CO.hand.className = 'chand' + (o.hand ? ' ' + o.hand : ''); CO.hand.textContent = o.hand ? '👆' : '';
+    const hp = o.handAt || (r ? { x: r.x + r.w / 2, y: r.y + r.h / 2 } : { x: A.width / 2, y: A.height * 0.7 });
+    Object.assign(CO.hand.style, { left: hp.x + 'px', top: hp.y + 'px' });
+    return new Promise(res => { coachRes = res; if (o.auto) setTimeout(() => { if (coachOpts === o) { coachRes = null; res(); } }, o.auto); });
+  }
+  function coachHide() { CO.el.classList.remove('on'); coachOpts = null; coachRes = null; }
+  CO.bub.querySelector('.cb').onclick = e => { e.stopPropagation(); Snd.sfx('ui'); if (coachRes) { const r = coachRes; coachRes = null; r(); } };
+  CO.el.addEventListener('pointerup', e => {
+    const o = coachOpts; if (!o || !o.tap || !coachRes) return;
+    const h = CO.hole.getBoundingClientRect();
+    if (e.clientX >= h.left && e.clientX <= h.right && e.clientY >= h.top && e.clientY <= h.bottom) {
+      const el = typeof o.el === 'string' ? $(o.el) : o.el; const r = coachRes; coachRes = null; Snd.sfx('ui');
+      if (o.click && el) el.click(); setTimeout(r, 30);
+    }
+  });
+  CO.skip.onclick = e => { e.stopPropagation(); if (skipFn) skipFn(); };
+  const until = (fn, timeout) => new Promise(res => { const t0 = performance.now(); const tick = () => { if (fn() || (timeout && performance.now() - t0 > timeout)) res(); else requestAnimationFrame(tick); }; tick(); });
+  const nextFrame = () => new Promise(r => setTimeout(r, 120));
+
+  async function menuTour() {
+    if (S.tourDone) return;
+    let skipped = false; CO.skip.style.display = ''; skipFn = () => { skipped = true; coachHide(); };
+    const steps = [
+      () => coach({ title: 'Welcome to Tennis Deluxe 🏓', text: "Let's take a quick tour so you know where everything is.", btn: "LET'S GO", step: '1/14' }),
+      () => coach({ el: document.querySelectorAll('#s-menu .cur')[1], title: 'Coins', text: 'You earn coins every match. Spend them on new bats and upgrades.', tap: true, hand: 'tap', step: '2/14' }),
+      () => coach({ el: document.querySelectorAll('#s-menu .cur')[0], title: 'Trophies', text: 'Win a world tournament and its trophy lands here.', tap: true, hand: 'tap', step: '3/14' }),
+      () => coach({ el: '#menuBody > div', title: 'Your bat', text: '<b>Speed</b> = harder shots. <b>Spin</b> = more curve. <b>Control</b> = fewer mistakes and a bigger reach.', tap: true, hand: 'tap', step: '4/14' }),
+      () => coach({ el: '#menuBody .card', title: 'Club League', text: 'Your home base. Win 3 league matches to move up a division.', tap: true, hand: 'tap', step: '5/14' }),
+      () => coach({ el: '#tabs [data-tab="shop"]', title: 'Shop', text: 'Tap <b>SHOP</b>.', tap: true, click: true, hand: 'tap', step: '6/14' }),
+      () => coach({ el: $('#shUp') || '#menuBody .panel', title: 'Upgrade', text: 'Upgrade your bat here, or buy a new one below. Legend bats unlock by winning tournaments.', tap: true, hand: 'tap', step: '7/14' }),
+      () => coach({ el: '#tabs [data-tab="tour"]', title: 'World tour', text: 'Tap <b>TOUR</b>.', tap: true, click: true, hand: 'tap', step: '8/14' }),
+      () => coach({ el: '#menuBody .node[data-t="lagos"]', title: 'Tournaments', text: 'Climb the league to unlock Lagos, then Accra, Cairo, London and Tokyo. Lose in a tournament and you drop back to the league.', tap: true, hand: 'tap', step: '9/14' }),
+      () => coach({ el: '#tabs [data-tab="ranks"]', title: 'Ranks', text: 'Tap <b>RANKS</b>.', tap: true, click: true, hand: 'tap', step: '10/14' }),
+      () => coach({ el: '#menuBody .card', title: 'Career', text: 'Your trophy cabinet and career stats live here.', tap: true, hand: 'tap', step: '11/14' }),
+      () => coach({ el: '#tabs [data-tab="lineup"]', title: 'Back home', text: 'Tap <b>LINEUP</b>.', tap: true, click: true, hand: 'tap', step: '12/14' }),
+      () => coach({ el: '#btnSet', title: 'Settings', text: 'Tap the <b>⚙️ settings</b> button.', tap: true, click: true, hand: 'tap', step: '13/14' }),
+      () => coach({ el: document.querySelectorAll('#mcard .tog')[0], title: 'Music', text: 'Turn the background music on or off.', tap: true, hand: 'tap', step: 'SETTINGS 1/6' }),
+      () => coach({ el: document.querySelectorAll('#mcard .tog')[1], title: 'Sound effects', text: 'Ball hits, bounces and the crowd.', tap: true, hand: 'tap', step: 'SETTINGS 2/6' }),
+      () => coach({ el: document.querySelectorAll('#mcard .tog')[2], title: 'Announcer', text: 'The voice that calls "Smash!", "Net", "Match point" and more.', tap: true, hand: 'tap', step: 'SETTINGS 3/6' }),
+      () => coach({ el: document.querySelectorAll('#mcard .tog')[3], title: 'Your name', text: 'Change the name on your scoreboard.', tap: true, hand: 'tap', step: 'SETTINGS 4/6' }),
+      () => coach({ el: '#stHow', title: 'How to play', text: 'A quick reminder of the controls. You can also replay this tutorial below it.', tap: true, hand: 'tap', step: 'SETTINGS 5/6' }),
+      () => coach({ el: '#stDone', title: 'Done', text: 'Tap <b>DONE</b> to close settings.', tap: true, click: true, hand: 'tap', step: 'SETTINGS 6/6' }),
+      () => coach({ el: '#lPlay', title: 'Time to play', text: "Tap <b>PLAY LEAGUE MATCH</b>. We'll teach you the controls first.", tap: true, click: true, hand: 'tap', step: '14/14' }),
+    ];
+    for (const st of steps) { if (skipped) break; await nextFrame(); if (skipped) break; await st(); }
+    S.tourDone = true; save(); coachHide(); CO.skip.style.display = 'none'; skipFn = null;
+  }
+
+  async function matchTutorial(real) {
+    const ai = makeAI(0.1, 'allround', 'Coach', '🏓'); Object.assign(ai, { error: 0.55, power: 0.2, spin: 0.08, speed: 1.4, reach: 0.22 });
+    startMatch({ mode: 'tutorial', tutorial: true, ai, theme: 'club', bestOf: 99, label: 'Tutorial' });
+    const m = M; m.frozen = true; let done = false, skipped = false;
+    const L = []; m.extra = (n, a, b) => L.forEach(f => f(n, a, b));
+    const once = (names) => new Promise(res => { const f = (n, a) => { if (names.includes(n)) { L.splice(L.indexOf(f), 1); res({ n, a }); } }; L.push(f); });
+    const alive = () => M === m && !skipped;
+    CO.skip.style.display = ''; skipFn = () => { skipped = true; coachHide(); finish(); };
+    const finish = () => { if (done) return; done = true; S.tutDone = true; S.seenTut = true; save(); coachHide(); CO.skip.style.display = 'none'; skipFn = null; m.extra = null; startMatch(real); };
+    const scr = sel => $(sel);
+    await new Promise(r => setTimeout(r, 1700));
+    const intro = [
+      { el: '.scorebox', title: 'Scoreboard', text: 'Your points on the left, your rival’s on the right. First to <b>11</b> wins (by 2 clear points).' },
+      { el: '.hud .hb', title: 'You', text: 'Your name and <b>momentum bar</b>. It fills up when you win points.' },
+      { el: '.hud .hb:nth-of-type(3)', title: 'Your rival', text: 'Their name and momentum. In longer matches, the dots show games won.' },
+      { el: '#hLabel', title: 'Match', text: 'Which match you’re playing: league, tournament round or final.' },
+      { el: '#btnPause', title: 'Pause', text: 'Pause any time. Quitting a match counts as a loss.' },
+    ];
+    for (const [i, st] of intro.entries()) { if (!alive()) return; await coach(Object.assign({ tap: true, hand: 'tap', step: `${i + 1}/5` }, st)); }
+    if (!alive()) return;
+    // hold
+    coach({ title: 'Hold', text: 'Put your finger anywhere on the screen and <b>keep holding</b>.', pass: true, light: true, noMask: true, hand: 'hold', bubY: 0.16, handAt: { x: $('#app').clientWidth / 2, y: $('#app').clientHeight * 0.78 } });
+    let heldFrom = 0; await until(() => { if (!alive()) return true; if (m.pad.down) { heldFrom = heldFrom || performance.now(); return performance.now() - heldFrom > 700; } heldFrom = 0; return false; });
+    if (!alive()) return;
+    coach({ title: 'Drag', text: 'Keep holding and <b>drag left and right</b>. Your bat follows your finger.', pass: true, light: true, noMask: true, hand: 'drag', bubY: 0.16, handAt: { x: $('#app').clientWidth / 2, y: $('#app').clientHeight * 0.78 } });
+    let travel = 0, lx = null; await until(() => { if (!alive()) return true; if (m.pad.down) { if (lx != null) travel += Math.abs(m.pad.sx - lx) / dpr; lx = m.pad.sx; } else lx = null; return travel > 260; });
+    if (!alive()) return;
+    await coach({ title: 'Nice!', text: 'That’s how you move. Now let’s return a serve.', pass: true, light: true, noMask: true, auto: 1400, bubY: 0.16 });
+    const drill = async (kind) => {
+      for (let attempt = 0; attempt < 3; attempt++) {
+        if (!alive()) return;
+        coach({ title: 'Coach serves', text: 'Watch the ball…', pass: true, light: true, noMask: true, bubY: 0.16 });
+        m.ts = 1; m.frozen = false; m.score = [0, 0]; m.coachServe();
+        const ev = await Promise.race([new Promise(res => { const f = (n, a) => { if (n === 'bounce' && a === 0) { L.splice(L.indexOf(f), 1); res('b'); } }; L.push(f); }), once(['pointdone']).then(() => 'pd')]);
+        if (!alive()) return; if (ev === 'pd') continue;
+        m.frozen = true; const g = m.predictCross(); m.guide = g;
+        const ring = TD.P(g.x, g.y, TD.HIT_P);
+        coach({ title: 'Freeze!', text: 'Drag your bat into the <b>yellow ring</b>. That’s where the ball will reach you.', pass: true, light: true, noMask: true, hand: 'drag', bubY: 0.16, handAt: { x: ring[0] / dpr, y: ring[1] / dpr + 40 } });
+        await until(() => !alive() || (m.pad.down && Math.abs(m.padWorldX() - g.x) < 0.11));
+        if (!alive()) return;
+        const txt = { basic: ['Swipe up!', 'Now <b>swipe UP</b> to hit it back.', 'swipe'], power: ['Power shot', '<b>Swipe up FAST</b> for a powerful shot.', 'swipe'], curve: ['Add spin', '<b>Swipe up in a curve</b>, like a C, to bend the ball.', 'curve'] }[kind];
+        coach({ title: txt[0], text: txt[1], pass: true, light: true, noMask: true, hand: txt[2], bubY: 0.16, handAt: { x: ring[0] / dpr, y: ring[1] / dpr + 60 } });
+        m.ts = 0.28; m.frozen = false;
+        const r = await once(['playerhit', 'miss', 'pointdone']);
+        m.ts = 1; m.guide = null;
+        let ok = false, msg = 'So close! Let’s try again.';
+        if (r.n === 'playerhit') {
+          if (kind === 'basic') { ok = true; msg = 'Great return! 🎉'; }
+          if (kind === 'power') { ok = r.a.power > 0.45; msg = ok ? 'Boom! That’s power. 💥' : 'Good hit! Swipe faster for more power.'; }
+          if (kind === 'curve') { ok = Math.abs(r.a.curve) > 0.2; msg = ok ? 'Look at that spin! 🌀' : 'Nice! Curve your swipe more to add spin.'; }
+        }
+        coach({ title: ok ? 'Yes!' : 'Again', text: msg, pass: true, light: true, noMask: true, bubY: 0.16 });
+        if (r.n !== 'pointdone') await Promise.race([once(['pointdone']), new Promise(x => setTimeout(x, 6000))]);
+        await new Promise(x => setTimeout(x, 500));
+        if (ok) return;
+      }
+    };
+    await drill('basic'); await drill('power'); await drill('curve');
+    if (!alive()) return;
+    coach({ title: 'Your serve', text: '<b>Swipe up</b> to serve, or just tap the screen.', pass: true, light: true, noMask: true, hand: 'swipe', bubY: 0.16, handAt: { x: $('#app').clientWidth / 2, y: $('#app').clientHeight * 0.75 } });
+    m.frozen = false; m.score = [0, 0]; m.playerServe();
+    await until(() => !alive() || (m.state === 'rally' && m.serveBy === 0));
+    if (!alive()) return;
+    coachHide(); CO.skip.style.display = '';
+    await Promise.race([once(['pointdone']), new Promise(x => setTimeout(x, 9000))]);
+    if (!alive()) return;
+    m.frozen = true;
+    await coach({ title: 'You’re ready! 🏆', text: 'Move with your finger, swipe to hit, curve for spin. Win points to fill your momentum. First to 11 wins!', btn: 'PLAY MY FIRST MATCH' });
+    finish();
+  }
+
+  window.__TD = { coachState: () => coachOpts && { title: coachOpts.title, tap: !!coachOpts.tap }, S: () => S, M: () => M, startMatch, playLeague, openBracket, openMenu, TOURS, makeAI, save: () => save() };
 })();
