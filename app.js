@@ -132,7 +132,7 @@
   }, { once: true });
 
   function askName(then) {
-    modal(`<div class="h1">Your name</div><div style="font-size:14px;color:var(--mut)">This shows on the scoreboard.</div><input id="nmIn" maxlength="14" placeholder="e.g. Favour" value="${esc(S.name)}"><button class="btn" id="nmOk">LET'S GO</button>`);
+    modal(`<div class="h1">Your name</div><div style="font-size:14px;color:var(--mut)">This shows on the scoreboard.</div><input id="nmIn" maxlength="14" placeholder="e.g. Syntrix" value="${esc(S.name)}"><button class="btn" id="nmOk">LET'S GO</button>`);
     const i = $('#nmIn'); setTimeout(() => i.focus(), 60);
     const ok = () => { const v = i.value.trim().slice(0, 14); S.name = v || 'Player'; save(); closeModal(); then && then(); };
     $('#nmOk').onclick = ok; i.onkeydown = e => { if (e.key === 'Enter') ok(); };
