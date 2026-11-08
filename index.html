@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,maximum-scale=1,user-scalable=no,viewport-fit=cover">
+<meta name="theme-color" content="#06100f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<title>Tennis Deluxe</title>
+<meta name="description" content="Table tennis career: climb the league, win tournaments around the world, upgrade your bat.">
+<style>
+@font-face{font-family:TDD;src:url(fonts/display-black.woff) format('woff');font-display:block}
+@font-face{font-family:TDI;src:url(fonts/display-blackitalic.woff) format('woff');font-display:block}
+@font-face{font-family:TDB;src:url(fonts/inter-extrabold.woff) format('woff');font-display:block}
+@font-face{font-family:TDBI;src:url(fonts/inter-extrabolditalic.woff) format('woff');font-display:block}
+:root{--pink:#ff3dc8;--cyan:#2de2ff;--gold:#ffd23f;--red:#ff5a36;--teal:#14483f;--green:#7be35a;--mut:rgba(255,255,255,.7);--sa:env(safe-area-inset-top,0px);--sb:env(safe-area-inset-bottom,0px)}
+*{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent;-webkit-user-select:none;user-select:none}
+html,body{width:100%;height:100%;overflow:hidden;background:#06100f;color:#fff;font-family:TDB,system-ui,sans-serif;overscroll-behavior:none;touch-action:manipulation}
+button{font:inherit;color:inherit;border:0;background:none;cursor:pointer}
+#app{position:fixed;inset:0;max-width:520px;margin:0 auto;overflow:hidden;background:#0a0720}
+@media (min-width:521px){body{background:radial-gradient(circle at 50% 30%,#1a2a40,#05080f)}#app{box-shadow:0 0 80px rgba(0,0,0,.6)}}
+.scr{position:absolute;inset:0;display:none;overflow:hidden}.scr.on{display:block}
+.sp{font-family:TDI;text-transform:uppercase;letter-spacing:.01em}
+.scroll{position:absolute;left:0;right:0;overflow-y:auto;-webkit-overflow-scrolling:touch;touch-action:pan-y}
+/* poster */
+.poster{position:absolute;inset:0;background:#06100f}
+.poster .table{position:absolute;inset:0;clip-path:polygon(0 0,100% 0,100% 25%,52% 56%,0 28%);background:radial-gradient(48% 23% at 52% 46%,var(--glow),transparent 70%),radial-gradient(95% 48% at 50% 30%,var(--t1),var(--t2) 80%)}
+.poster .dark{position:absolute;inset:0;clip-path:polygon(0 0,62% 0,0 19%);background:linear-gradient(160deg,rgba(0,0,0,.55),rgba(0,0,0,.25))}
+.poster .cloth{position:absolute;inset:0;clip-path:polygon(0 28%,52% 56%,100% 25%,100% 100%,0 100%);background:linear-gradient(200deg,var(--c1),var(--c2))}
+.poster .fold{position:absolute;inset:0;clip-path:polygon(52% 56%,100% 25%,100% 100%,62% 100%);background:linear-gradient(200deg,rgba(255,255,255,.05),rgba(0,0,0,.25))}
+.poster svg.edge{position:absolute;inset:0;width:100%;height:100%}
+.poster .vig{position:absolute;inset:0;background:radial-gradient(100% 75% at 50% 42%,transparent 55%,rgba(0,0,0,.7))}
+.pd{position:absolute;width:21.8%;aspect-ratio:118/190}
+.pd .r{position:absolute;left:0;top:0;width:100%;height:63%;border-radius:52% 52% 48% 48%;background:radial-gradient(circle at 35% 30%,#ff7a52,#e8361b 55%,#b8200d);box-shadow:inset 0 -6px 0 rgba(0,0,0,.18),0 0 0 3px #3a0d06,0 18px 30px rgba(0,0,0,.45)}
+.pd .h{position:absolute;left:39%;top:55%;width:22%;height:45%;border-radius:8px;background:linear-gradient(90deg,#1b1414,#3a2a26 45%,#140f0f);box-shadow:0 10px 18px rgba(0,0,0,.5)}
+.pd .h:after{content:"";position:absolute;left:42%;top:7%;width:12%;height:82%;background:linear-gradient(#e6a37a,#b46a40);border-radius:2px}
+.pball{position:absolute;left:47.4%;top:46.4%;width:5.6%;aspect-ratio:1;border-radius:50%;background:radial-gradient(circle at 35% 30%,#fff,#e9e3d6 60%,#bdb4a2);box-shadow:0 8px 14px rgba(0,0,0,.5)}
+.ttl{position:absolute;left:0;right:0;text-align:center}
+.wm{font-family:TDD;font-size:clamp(34px,10.4vw,56px);letter-spacing:.06em;line-height:1;color:#fff;text-shadow:0 4px 24px rgba(0,0,0,.45)}
+.wm b{font-family:TDI;color:var(--red);font-weight:400}
+.rule{display:flex;align-items:center;justify-content:center;gap:12px;font-size:12px;letter-spacing:.22em;color:rgba(255,255,255,.85)}
+.rule:before,.rule:after{content:"";width:12%;height:1.5px;background:rgba(255,255,255,.75)}
+.arc{position:absolute;left:0;right:0;width:100%}
+.tap{animation:pulse 1.4s ease-in-out infinite}
+@keyframes pulse{50%{opacity:.35;transform:scale(.97)}}
+/* currency bar */
+.topbar{position:absolute;left:0;right:0;top:calc(14px + var(--sa));height:46px;display:flex;align-items:center;gap:10px;padding:0 12px;z-index:5}
+.avatar{flex:none;width:46px;height:46px;border-radius:50%;background:linear-gradient(135deg,var(--red),#ffb03a);box-shadow:0 0 0 3px #fff;display:flex;align-items:center;justify-content:center;font-family:TDI;font-size:19px}
+.cur{position:relative;flex:1;cursor:pointer;height:40px;display:flex;align-items:center;justify-content:flex-end;gap:6px;padding:0 12px;background:linear-gradient(180deg,rgba(14,44,40,.94),rgba(8,30,28,.94));border-radius:8px;transform:skewX(-12deg);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.1)}
+.cur>*{transform:skewX(12deg)}
+.cur .v{font-family:TDI;font-size:20px}
+.plus{position:absolute;left:-6px;top:5px;width:26px;height:30px;border-radius:7px;background:linear-gradient(#7be35a,#36a91e);display:flex;align-items:center;justify-content:center;font-family:TDD;font-size:20px;color:#0d3a07;box-shadow:0 3px 0 #1d6b0e;transform:none!important}
+.coin{display:inline-block;width:20px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 35%,#fff3b0,#ffc21a 55%,#c98a00);box-shadow:inset 0 -2px 0 rgba(0,0,0,.25),0 0 0 2px #8a5c00;vertical-align:-4px}
+.gearbtn{flex:none;width:40px;height:40px;border-radius:10px;background:rgba(0,0,0,.4);display:flex;align-items:center;justify-content:center;font-size:20px;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.15)}
+/* panels & cards */
+.panel{background:linear-gradient(180deg,rgba(20,72,64,.95),rgba(12,48,44,.95));border-radius:10px;box-shadow:0 10px 30px rgba(0,0,0,.35),inset 0 0 0 1.5px rgba(255,255,255,.08)}
+.srow{display:grid;grid-template-columns:26px 1fr 34px;align-items:center;gap:8px;padding:7px 12px 9px;position:relative}
+.srow .ic{font-size:17px;text-align:center}
+.srow .nm{font-family:TDI;font-size:15px;text-transform:uppercase}
+.srow .v{font-family:TDI;font-size:21px;text-align:right}
+.srow .ln{position:absolute;left:46px;right:50px;bottom:5px;height:4px;background:rgba(0,0,0,.35);border-radius:3px;overflow:hidden}.srow .ln i{display:block;height:100%;background:#fff;border-radius:3px}
+.card{background:rgba(255,255,255,.08);border:1.5px solid rgba(255,255,255,.14);border-radius:16px;padding:14px}
+.btn{display:flex;align-items:center;justify-content:center;gap:10px;font-family:TDI;font-size:21px;text-transform:uppercase;letter-spacing:.02em;border-radius:14px;padding:16px;width:100%;
+  background:linear-gradient(180deg,#ffe27a,#ffbe1a);box-shadow:0 6px 0 #b77d00,0 12px 24px rgba(0,0,0,.3);color:#2a1c00;transition:transform .08s}
+.btn:active{transform:translateY(4px);box-shadow:0 2px 0 #b77d00}
+.btn.red{background:linear-gradient(180deg,#ff7a52,#e8361b);box-shadow:0 6px 0 #8f1d0a,0 12px 24px rgba(0,0,0,.3);color:#fff}
+.btn.blue{background:linear-gradient(180deg,#5cb8ff,#2a7fe0);box-shadow:0 6px 0 #164f99,0 12px 24px rgba(0,0,0,.3);color:#fff}
+.btn.ghost{background:rgba(255,255,255,.1);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.2);color:#fff;font-size:17px}
+.btn[disabled]{filter:grayscale(1);opacity:.55}
+.tabs{position:absolute;left:0;right:0;bottom:0;height:calc(78px + var(--sb));padding-bottom:var(--sb);display:flex;background:linear-gradient(180deg,#3a2a1e,#241810);box-shadow:0 -4px 0 rgba(0,0,0,.25);z-index:6}
+.tabs button{flex:1;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;border-right:2px solid rgba(0,0,0,.25);font-family:TDI;font-size:12px;color:rgba(255,255,255,.55)}
+.tabs button i{font-style:normal;font-size:25px;filter:grayscale(.6);opacity:.8}
+.tabs button.on{background:linear-gradient(180deg,#1f1610,#120c08);color:#b8ff3d;box-shadow:inset 0 4px 0 #b8ff3d}.tabs button.on i{filter:none;opacity:1}
+.tabs button.play{background:linear-gradient(180deg,#ffd23f,#f59b0b);color:#2a1600;box-shadow:inset 0 4px 0 #fff3a8}.tabs button.play i{filter:none;opacity:1}
+.menubg{position:absolute;inset:-20px;background-size:cover;background-position:center;filter:blur(8px) brightness(.62) saturate(1.1)}
+.menushade{position:absolute;inset:0;background:linear-gradient(180deg,rgba(0,0,0,.25),rgba(0,0,0,0) 30%,rgba(0,0,0,.45))}
+.h1{font-family:TDI;text-transform:uppercase;font-size:30px;line-height:1}
+.kick{font-family:TDB;font-size:11px;letter-spacing:.18em;color:var(--cyan)}
+.chip{display:inline-flex;align-items:center;gap:6px;font-size:12px;padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.18)}
+.bar{height:10px;border-radius:99px;background:rgba(0,0,0,.35);overflow:hidden}.bar>i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,var(--cyan),var(--green))}
+/* bat art */
+.bat{position:relative;width:118px;aspect-ratio:118/190}
+.bat .r{position:absolute;left:0;top:0;width:100%;height:63%;border-radius:52% 52% 48% 48%;background:radial-gradient(circle at 35% 30%,var(--c1),var(--c2) 70%);box-shadow:0 0 0 4px #16161c,0 0 32px var(--gl)}
+.bat .h{position:absolute;left:38%;top:57%;width:24%;height:43%;border-radius:8px;background:linear-gradient(90deg,#c99a5b,#f1cf94,#c99a5b);box-shadow:inset 0 0 0 4px #2b1b10}
+/* match */
+#cv{position:absolute;inset:0;width:100%;height:100%;touch-action:none}
+.hud{position:absolute;left:0;right:0;top:calc(10px + var(--sa));height:70px;pointer-events:none}
+.hb{position:absolute;top:0;width:34%}
+.hb .nm{font-family:TDI;font-size:14px;letter-spacing:.04em;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hb .barw{margin-top:4px;height:20px;transform:skewX(-20deg);background:#0d1522;box-shadow:0 0 0 2px rgba(255,255,255,.75);position:relative}
+.hb .barw i{position:absolute;top:3px;bottom:3px;left:3px;transition:width .4s}
+.hb .gm{margin-top:5px;display:flex;gap:5px}.hb .gm b{width:10px;height:10px;border-radius:50%;background:rgba(255,255,255,.2);box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.5)}.hb .gm b.w{background:var(--gold)}
+.scorebox{position:absolute;z-index:2;left:50%;top:2px;transform:translateX(-50%) skewX(-12deg);min-width:98px;height:52px;padding:0 12px;background:linear-gradient(180deg,#141c2e,#0a0f1c);box-shadow:0 0 0 2px rgba(255,255,255,.75);display:flex;align-items:center;justify-content:center;gap:10px;font-family:TDI;font-size:34px}
+.scorebox .srv{position:absolute;bottom:-14px;font-size:10px;letter-spacing:.1em;color:var(--gold)}
+.label{position:absolute;left:0;right:0;top:calc(82px + var(--sa));text-align:center;pointer-events:none}
+.label span{display:inline-block;padding:5px 12px;background:rgba(0,0,0,.45);border-radius:8px;font-family:TDI;font-size:12px;letter-spacing:.08em;transform:skewX(-12deg)}
+.callout{position:absolute;left:0;right:0;top:30%;text-align:center;pointer-events:none;font-family:TDI;text-transform:uppercase;font-size:clamp(34px,11vw,58px);text-shadow:0 4px 0 rgba(0,0,0,.35),0 0 30px rgba(255,90,54,.6);opacity:0}
+.callout.go{animation:pop 1.1s ease-out}
+@keyframes pop{0%{opacity:0;transform:scale(.4) rotate(-6deg)}15%{opacity:1;transform:scale(1.12) rotate(-4deg)}30%{transform:scale(1) rotate(-4deg)}80%{opacity:1}100%{opacity:0;transform:scale(1.05) rotate(-4deg) translateY(-20px)}}
+.rally{position:absolute;left:16px;top:calc(120px + var(--sa));pointer-events:none;font-family:TDI;line-height:.9;transition:opacity .3s}
+.rally b{display:block;font-size:46px}.rally span{font-size:18px;color:var(--gold)}
+.hint{position:absolute;left:0;right:0;bottom:calc(36px + var(--sb));text-align:center;pointer-events:none;transition:opacity .3s}
+.hint span{display:inline-flex;align-items:center;gap:10px;padding:10px 16px;background:rgba(0,0,0,.5);border-radius:14px;font-family:TDI;font-size:14px;letter-spacing:.04em}
+.pausebtn{position:absolute;right:12px;top:calc(96px + var(--sa));width:40px;height:40px;border-radius:10px;background:rgba(0,0,0,.45);font-size:16px;font-family:TDD;z-index:3}
+.vs{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;background:rgba(5,5,20,.55);pointer-events:none;transition:opacity .4s}
+.vs .row{display:flex;align-items:center;gap:16px;font-family:TDI;font-size:26px;text-transform:uppercase}
+.vs .vsx{font-size:40px;color:var(--gold)}
+.modal{position:absolute;inset:0;background:rgba(0,0,0,.6);display:none;align-items:center;justify-content:center;padding:20px;z-index:20}
+.modal.on{display:flex}
+.mcard{width:100%;max-width:400px;background:linear-gradient(180deg,#183f39,#0e2b27);border-radius:18px;padding:20px;box-shadow:0 20px 60px rgba(0,0,0,.5),inset 0 0 0 1.5px rgba(255,255,255,.1);display:flex;flex-direction:column;gap:12px}
+.mcard input{width:100%;padding:14px;border-radius:12px;border:2px solid rgba(255,255,255,.2);background:rgba(0,0,0,.3);color:#fff;font:inherit;font-size:18px;-webkit-user-select:text;user-select:text}
+.tog{display:flex;align-items:center;justify-content:space-between;padding:10px 0;font-size:16px}
+.sw{width:52px;height:30px;border-radius:99px;background:rgba(255,255,255,.2);position:relative;transition:background .2s}.sw:after{content:"";position:absolute;left:3px;top:3px;width:24px;height:24px;border-radius:50%;background:#fff;transition:left .2s}
+.sw.on{background:#36a91e}.sw.on:after{left:25px}
+.toast{position:absolute;left:50%;bottom:110px;transform:translateX(-50%);background:rgba(0,0,0,.8);padding:10px 16px;border-radius:12px;font-size:14px;z-index:30;white-space:nowrap}
+.grade{width:130px;height:130px;border-radius:50%;margin:0 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;background:radial-gradient(circle,#1f5a50,#0e2b27);border:4px solid var(--gold);box-shadow:0 0 40px rgba(255,210,63,.35)}
+.grade b{font-family:TDI;font-size:64px;line-height:1;color:var(--gold)}
+.stats4{display:grid;grid-template-columns:1fr 1fr;gap:10px 16px}
+.stats4 small{display:block;font-size:11px;color:var(--mut)}.stats4 b{font-family:TDI;font-size:20px}
+.node{display:flex;gap:12px;align-items:center}
+.node .dot{flex:none;width:60px;height:60px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:28px;background:radial-gradient(circle,#2a5f56,#11332e);border:3px solid rgba(255,255,255,.2)}
+.slot{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:10px;background:rgba(255,255,255,.07);border:1.5px solid rgba(255,255,255,.12);font-size:13px}
+.slot.me{background:linear-gradient(90deg,rgba(255,90,54,.35),rgba(255,90,54,.08));border-color:var(--red)}
+.slot.out{opacity:.4;text-decoration:line-through}
+.slot.win{border-color:var(--gold)}
+</style>
+</head>
+<body>
+<div id="app">
+  <!-- SPLASH -->
+  <div class="scr on" id="s-splash">
+    <div class="poster" style="--t1:#2c6f78;--t2:#123a45;--glow:rgba(176,120,255,.35);--c1:#123a2d;--c2:#06150f">
+      <div class="table"></div><div class="dark"></div><div class="cloth"></div><div class="fold"></div>
+      <svg class="edge" viewBox="0 0 540 960" preserveAspectRatio="none"><polyline points="-10,264 281,540 550,236" fill="none" stroke="#f1ead8" stroke-width="9"/><polyline points="-10,272 281,548 550,244" fill="none" stroke="rgba(0,0,0,.35)" stroke-width="4"/><line x1="335" y1="-5" x2="-5" y2="186" stroke="rgba(255,255,255,.18)" stroke-width="2"/></svg>
+      <div class="pd" style="left:25.7%;top:33%;transform:rotate(20deg)"><div class="h"></div><div class="r"></div></div>
+      <div class="pd" style="left:52.4%;top:33%;transform:rotate(-20deg)"><div class="h"></div><div class="r"></div></div>
+      <div class="pball"></div><div class="vig"></div>
+      <svg class="arc" style="top:9.5%" viewBox="0 0 540 90"><defs><path id="arcp" d="M150 80 Q270 18 390 80"/></defs><text font-family="TDI" font-size="30" fill="#ff5a36" letter-spacing="2"><textPath href="#arcp" startOffset="50%" text-anchor="middle">TABLE TENNIS</textPath></text></svg>
+      <div class="ttl rule" style="top:19.8%">CAREER · TOURNAMENTS · GLORY</div>
+      <div class="ttl wm" style="top:22.9%">TENNIS <b>DELUXE</b></div>
+      <div class="ttl sp tap" style="top:81%;font-size:22px;letter-spacing:.2em">TAP TO PLAY</div>
+      <div class="ttl" style="bottom:calc(24px + var(--sb));font-size:11px;color:rgba(255,255,255,.45);letter-spacing:.12em">NO ADS · OFFLINE CAREER</div>
+    </div>
+  </div>
+  <!-- LOADING -->
+  <div class="scr" id="s-loading">
+    <div class="poster" style="--t1:#5fc3cf;--t2:#2b8796;--glow:rgba(255,255,255,.45);--c1:#2f7a5d;--c2:#164735">
+      <div class="table"></div><div class="dark" style="opacity:.35"></div><div class="cloth"></div><div class="fold"></div>
+      <svg class="edge" viewBox="0 0 540 960" preserveAspectRatio="none"><polyline points="-10,264 281,540 550,236" fill="none" stroke="#fffaf0" stroke-width="9"/><polyline points="-10,272 281,548 550,244" fill="none" stroke="rgba(0,0,0,.2)" stroke-width="4"/></svg>
+      <div class="pd" style="left:25.7%;top:33%;transform:rotate(20deg)"><div class="h"></div><div class="r"></div></div>
+      <div class="pd" style="left:52.4%;top:33%;transform:rotate(-20deg)"><div class="h"></div><div class="r"></div></div>
+      <div class="pball"></div><div class="vig" style="background:radial-gradient(100% 75% at 50% 42%,transparent 60%,rgba(0,0,0,.35))"></div>
+      <svg class="arc" style="top:9.5%" viewBox="0 0 540 90"><text font-family="TDI" font-size="30" fill="#ff5a36" letter-spacing="2"><textPath href="#arcp" startOffset="50%" text-anchor="middle">TABLE TENNIS</textPath></text></svg>
+      <div class="ttl rule" style="top:19.8%">CAREER · TOURNAMENTS · GLORY</div>
+      <div class="ttl wm" style="top:22.9%">TENNIS <b>DELUXE</b></div>
+      <div style="position:absolute;left:11%;right:11%;top:78%">
+        <div style="display:flex;justify-content:space-between" class="sp"><span id="ldTxt" style="font-size:14px;letter-spacing:.06em">LOADING…</span><span id="ldPct" style="font-size:14px">0%</span></div>
+        <div style="margin-top:10px;height:16px;border-radius:10px;background:rgba(0,0,0,.35);box-shadow:inset 0 0 0 2px rgba(255,255,255,.5);overflow:hidden;transform:skewX(-14deg)"><i id="ldBar" style="display:block;width:0;height:100%;background:linear-gradient(90deg,#ff7a52,#ffd23f);transition:width .2s"></i></div>
+        <div id="ldTip" style="margin-top:20px;text-align:center;font-size:13.5px;line-height:1.45"></div>
+      </div>
+    </div>
+  </div>
+  <!-- MENU SCREENS (lineup / tour / shop / ranks) -->
+  <div class="scr" id="s-menu">
+    <div class="menubg" id="menuBg"></div><div class="menushade"></div>
+    <div class="topbar">
+      <div class="avatar" id="tbAv">YOU</div>
+      <div class="cur"><span class="v" id="tbTro">0</span><span style="font-size:18px">🏆</span></div>
+      <div class="cur"><div class="plus">+</div><span class="v" id="tbCoins">0</span><span class="coin"></span></div>
+      <button class="gearbtn" id="btnSet" aria-label="Settings">⚙️</button>
+    </div>
+    <div class="scroll" id="menuBody" style="top:calc(70px + var(--sa));bottom:calc(78px + var(--sb));padding:10px 14px 20px"></div>
+    <div class="tabs" id="tabs">
+      <button data-tab="shop"><i>🛒</i>SHOP</button><button data-tab="tour"><i>🗺️</i>TOUR</button><button class="play" data-tab="play"><i>▶️</i>PLAY</button><button data-tab="lineup" class="on"><i>🏓</i>LINEUP</button><button data-tab="ranks"><i>🏆</i>RANKS</button>
+    </div>
+  </div>
+  <!-- BRACKET -->
+  <div class="scr" id="s-bracket"><div class="menubg" id="brBg"></div><div class="menushade"></div><div class="scroll" id="brBody" style="top:0;bottom:0;padding:calc(16px + var(--sa)) 14px calc(24px + var(--sb))"></div></div>
+  <!-- MATCH -->
+  <div class="scr" id="s-match">
+    <canvas id="cv"></canvas>
+    <div class="hud">
+      <div class="hb" style="left:12px"><div class="nm" id="hNameP">YOU</div><div class="barw"><i id="hMomP" style="width:50%;background:linear-gradient(90deg,#2de2ff,#7bffd9)"></i></div><div class="gm" id="hGamesP"></div></div>
+      <div class="scorebox"><span id="hScoreP">0</span><span style="font-size:20px;opacity:.5">:</span><span id="hScoreA" style="color:#ff8aa0">0</span><div class="srv" id="hSrv"></div></div>
+      <div class="hb" style="right:12px;text-align:right"><div class="nm" id="hNameA">AI</div><div class="barw"><i id="hMomA" style="width:50%;right:3px;left:auto;background:linear-gradient(270deg,#ff3d6e,#ffb03a)"></i></div><div class="gm" id="hGamesA" style="justify-content:flex-end"></div></div>
+    </div>
+    <div class="label"><span id="hLabel">LEAGUE</span></div>
+    <div class="rally" id="hRally" style="opacity:0"><b id="hRallyN">0</b><span>RALLY</span></div>
+    <button class="pausebtn" id="btnPause" aria-label="Pause">II</button>
+    <div class="callout" id="hCall"></div>
+    <div class="hint" id="hHint" style="opacity:0"><span>👆 <em id="hHintT" style="font-style:normal"></em></span></div>
+    <div class="vs" id="hVs" style="opacity:0"></div>
+  </div>
+  <!-- RESULT -->
+  <div class="scr" id="s-result"><div class="menubg" id="rsBg"></div><div class="menushade"></div><div class="scroll" id="rsBody" style="top:0;bottom:0;padding:calc(30px + var(--sa)) 16px calc(24px + var(--sb))"></div></div>
+  <div class="modal" id="modal"><div class="mcard" id="mcard"></div></div>
+</div>
+<script src="engine.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
