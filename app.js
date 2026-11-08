@@ -63,8 +63,9 @@
       let done = 0;
       await Promise.all(VOICES.map(async v => { try { const r = await fetch('audio/' + v + '.mp3'); const ab = await r.arrayBuffer(); this.buf[v] = await new Promise((res, rej) => this.ac.decodeAudioData(ab, res, rej)); } catch (e) { } done++; onp && onp(done / VOICES.length); }));
     },
-    voice(k) { if (!S.set.voice || !this.ac || !this.buf[k]) return; const s = this.ac.createBufferSource(), g = this.ac.createGain(); g.gain.value = 1.0; s.buffer = this.buf[k]; s.connect(g); g.connect(this.master); s.start(); },
+    voice(k) { if (window.__sndlog) window.__sndlog('voice', k, 1); if (!S.set.voice || !this.ac || !this.buf[k]) return; const s = this.ac.createBufferSource(), g = this.ac.createGain(); g.gain.value = 1.0; s.buffer = this.buf[k]; s.connect(g); g.connect(this.master); s.start(); },
     playMusic(k) {
+      if (window.__sndlog) window.__sndlog('music', k, 1);
       if (this.cur === k) { if (S.set.music && this.music[k] && this.music[k].paused) this.music[k].play().catch(() => { }); return; }
       Object.entries(this.music).forEach(([n, a]) => { if (n !== k) this.fade(a, 0, true); });
       this.cur = k; const a = this.music[k]; if (!a || !S.set.music) return;
@@ -76,6 +77,7 @@
     tone(f, d, v, type, f2, delay) { const t = this.ac.currentTime + (delay || 0), o = this.ac.createOscillator(); o.type = type || 'sine'; o.frequency.setValueAtTime(f, t); if (f2) o.frequency.exponentialRampToValueAtTime(f2, t + d); this.env(o, t, 0.002, v, d); o.start(t); o.stop(t + d + 0.02); },
     burst(d, v, type, f, q, delay) { const t = this.ac.currentTime + (delay || 0), s = this.ac.createBufferSource(); s.buffer = this.noise; const fl = this.ac.createBiquadFilter(); fl.type = type; fl.frequency.value = f; fl.Q.value = q || 1; s.connect(fl); this.env(fl, t, 0.001, v, d); s.start(t, Math.random()); s.stop(t + d + 0.02); },
     sfx(kind, v = 0.5) {
+      if (window.__sndlog) window.__sndlog('sfx', kind, v);
       if (!S.set.sfx || !this.ac) return; v = cl(v, 0.05, 1);
       if (kind === 'paddle') { this.burst(0.03, 0.5 * v + 0.12, 'bandpass', 3200, 1.2); this.tone(1050 + 350 * v, 0.055, 0.28 + 0.2 * v, 'sine', 700); if (v > 0.75) this.tone(160, 0.09, 0.4, 'sine', 70); }
       else if (kind === 'table') { this.tone(2100, 0.035, 0.22 + 0.3 * v, 'sine', 1500); this.burst(0.012, 0.25 * v + 0.05, 'highpass', 4500); }
@@ -85,11 +87,12 @@
       else if (kind === 'coin') { this.tone(1568, 0.08, 0.15, 'triangle'); this.tone(2093, 0.14, 0.15, 'triangle', null, 0.07); }
     },
     crowdOn(on) {
+      if (window.__sndlog) window.__sndlog('crowd', on ? 'on' : 'off', 1);
       if (!this.ac) return;
       if (on && !this.crowd) { const s = this.ac.createBufferSource(); s.buffer = this.noise; s.loop = true; const f = this.ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 650; f.Q.value = 0.5; const g = this.ac.createGain(); g.gain.value = S.set.sfx ? 0.035 : 0; s.connect(f); f.connect(g); g.connect(this.master); s.start(); this.crowd = { s, g }; }
       if (!on && this.crowd) { try { this.crowd.s.stop(); } catch (e) { } this.crowd = null; }
     },
-    cheer(p) { if (!S.set.sfx || !this.ac) return; const t = this.ac.currentTime, s = this.ac.createBufferSource(); s.buffer = this.noise; const f = this.ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 0.35; const g = this.ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06 + 0.12 * p, t + 0.18); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1 + p); s.connect(f); f.connect(g); g.connect(this.master); s.start(t, Math.random()); s.stop(t + 2.4); }
+    cheer(p) { if (window.__sndlog) window.__sndlog('cheer', 'cheer', p); if (!S.set.sfx || !this.ac) return; const t = this.ac.currentTime, s = this.ac.createBufferSource(); s.buffer = this.noise; const f = this.ac.createBiquadFilter(); f.type = 'bandpass'; f.frequency.value = 1400; f.Q.value = 0.35; const g = this.ac.createGain(); g.gain.setValueAtTime(0.0001, t); g.gain.exponentialRampToValueAtTime(0.06 + 0.12 * p, t + 0.18); g.gain.exponentialRampToValueAtTime(0.0001, t + 1.1 + p); s.connect(f); f.connect(g); g.connect(this.master); s.start(t, Math.random()); s.stop(t + 2.4); }
   };
 
   /* ================= helpers ================= */
